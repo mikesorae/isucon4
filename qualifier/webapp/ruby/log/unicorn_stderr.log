@@ -1,0 +1,33 @@
+I, [2016-11-19T12:48:16.175074 #38357]  INFO -- : Refreshing Gem list
+I, [2016-11-19T12:48:16.272262 #38357]  INFO -- : listening on addr=0.0.0.0:8080 fd=7
+I, [2016-11-19T12:48:16.272361 #38357]  INFO -- : worker=0 spawning...
+I, [2016-11-19T12:48:16.273385 #38357]  INFO -- : worker=1 spawning...
+I, [2016-11-19T12:48:16.273754 #38357]  INFO -- : worker=2 spawning...
+I, [2016-11-19T12:48:16.274222 #38357]  INFO -- : worker=3 spawning...
+I, [2016-11-19T12:48:16.275688 #38357]  INFO -- : worker=4 spawning...
+I, [2016-11-19T12:48:16.274991 #38359]  INFO -- : worker=1 spawned pid=38359
+I, [2016-11-19T12:48:16.275264 #38360]  INFO -- : worker=2 spawned pid=38360
+I, [2016-11-19T12:48:16.274840 #38358]  INFO -- : worker=0 spawned pid=38358
+I, [2016-11-19T12:48:16.277145 #38357]  INFO -- : worker=5 spawning...
+I, [2016-11-19T12:48:16.277246 #38361]  INFO -- : worker=3 spawned pid=38361
+I, [2016-11-19T12:48:16.282205 #38357]  INFO -- : worker=6 spawning...
+I, [2016-11-19T12:48:16.280947 #38359]  INFO -- : worker=1 ready
+I, [2016-11-19T12:48:16.281281 #38360]  INFO -- : worker=2 ready
+I, [2016-11-19T12:48:16.280928 #38358]  INFO -- : worker=0 ready
+I, [2016-11-19T12:48:16.284298 #38357]  INFO -- : worker=7 spawning...
+I, [2016-11-19T12:48:16.281839 #38362]  INFO -- : worker=4 spawned pid=38362
+I, [2016-11-19T12:48:16.284482 #38363]  INFO -- : worker=5 spawned pid=38363
+I, [2016-11-19T12:48:16.286154 #38364]  INFO -- : worker=6 spawned pid=38364
+I, [2016-11-19T12:48:16.288068 #38357]  INFO -- : worker=8 spawning...
+I, [2016-11-19T12:48:16.287768 #38361]  INFO -- : worker=3 ready
+I, [2016-11-19T12:48:16.289598 #38357]  INFO -- : worker=9 spawning...
+I, [2016-11-19T12:48:16.289246 #38365]  INFO -- : worker=7 spawned pid=38365
+I, [2016-11-19T12:48:16.289018 #38362]  INFO -- : worker=4 ready
+I, [2016-11-19T12:48:16.291171 #38366]  INFO -- : worker=8 spawned pid=38366
+I, [2016-11-19T12:48:16.292182 #38363]  INFO -- : worker=5 ready
+I, [2016-11-19T12:48:16.292306 #38364]  INFO -- : worker=6 ready
+I, [2016-11-19T12:48:16.293583 #38357]  INFO -- : master process ready
+I, [2016-11-19T12:48:16.297216 #38365]  INFO -- : worker=7 ready
+I, [2016-11-19T12:48:16.296515 #38367]  INFO -- : worker=9 spawned pid=38367
+I, [2016-11-19T12:48:16.300473 #38366]  INFO -- : worker=8 ready
+I, [2016-11-19T12:48:16.301937 #38367]  INFO -- : worker=9 ready
