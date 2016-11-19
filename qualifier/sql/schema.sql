@@ -2,7 +2,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `login` varchar(255) NOT NULL UNIQUE,
   `password_hash` varchar(255) NOT NULL,
-  `salt` varchar(255) NOT NULL
+  `salt` varchar(255) NOT NULL,
+  INDEX `ix_user_login` (`login` ASC)
 ) DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `login_log` (
@@ -12,6 +13,8 @@ CREATE TABLE IF NOT EXISTS `login_log` (
   `login` varchar(255) NOT NULL,
   `ip` varchar(255) NOT NULL,
   `succeeded` tinyint NOT NULL,
+  INDEX `ix_login_user_id` (`user_id` ASC),
+  INDEX `ix_login_user_login` (`login` ASC),
   INDEX `ix_login_log_ip` (`ip` ASC),
   INDEX `ix_login_succeeded` (`succeeded` ASC)
 ) DEFAULT CHARSET=utf8;
