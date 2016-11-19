@@ -8,7 +8,7 @@ require 'redis'
 module Isucon4
   class App < Sinatra::Base
     @@redis = Redis.new
-    
+
     use Rack::Session::Cookie, secret: ENV['ISU4_SESSION_SECRET'] || 'shirokane'
     use Rack::Flash
     set :public_folder, File.expand_path('../../public', __FILE__)
@@ -37,7 +37,7 @@ module Isucon4
         db.xquery('SELECT ip, user_id, login, succeeded FROM login_log ORDER BY id').each do |row|
           login_log(row['succeeded'] == 1 ? true : false , row['login'], row['ip'], row['user_id'])
         end
-        
+
         @@redis.keys().each {|key|
           if key == 'ipbans' || key == 'userlocks'
             @@redis.smembers(key).each {|member|
@@ -56,15 +56,15 @@ module Isucon4
       def login_log(succeeded, login, ip, user_id = nil)
         if succeeded
           @@redis.del("ip:#{ip}")
-          if user_id 
+          if user_id
             @@redis.del("user:#{user_id.to_s}")
           end
         else
           if @@redis.incr("ip:#{ip}") >= config[:ip_ban_threshold]
             @@redis.sadd('ipbans', ip)
           end
-          
-          if user_id 
+
+          if user_id
             if @@redis.incr("user:#{user_id}") >= config[:user_lock_threshold]
               @@redis.sadd('userlocks', login)
             end
@@ -106,6 +106,7 @@ module Isucon4
         end
       end
 
+      # 現在未使用
       def current_user
         return @current_user if @current_user
         return nil unless session[:user_id]
@@ -119,7 +120,8 @@ module Isucon4
         @current_user
       end
 
-      def last_login #使われてないっぽい
+      # 現在未使用
+      def last_login
         return nil unless current_user
 
         db.xquery('SELECT * FROM login_log WHERE succeeded = 1 AND user_id = ? ORDER BY id DESC LIMIT 2', current_user['id']).each.last
@@ -151,11 +153,12 @@ module Isucon4
     get '/' do
       # init
       erb :index, layout: :base
-    end 
+    end
 
     post '/login' do
       user, err = attempt_login(params[:login], params[:password])
       if user
+        @current_user = user
         session[:user_id] = user['id']
         redirect '/mypage'
       else
