@@ -55,16 +55,22 @@ module Isucon4
         Digest::SHA256.hexdigest "#{password}:#{salt}"
       end
 
-      def login_log(succeeded, ip, user_id = nil)
+      def login_log(succeeded, login, ip, user_id = nil)
         if succeeded == 1
           # 必要だったら last_login やる
         else
-          ip_login_failure_cnt = @@ip_login_failure_hash[ip] || 0
-          @@ip_login_failure_hash[ip] = ip_login_failure_cnt + 1
+          unless @@ip_login_failure_hash[ip]
+            @@ip_login_failure_hash[ip] = [0, login]
+          end
+          ip_login_failure_cnt = @@ip_login_failure_hash[ip][0] || 0
+          @@ip_login_failure_hash[ip][0] = ip_login_failure_cnt + 1
           
           if user_id 
-            user_login_failure_cnt = @@user_login_failure_hash[user_id] || 0
-            @@user_login_failure_hash[user_id] = user_login_failure_cnt + 1
+            unless @@user_login_failure_hash[user_id]
+              @@user_login_failure_hash[user_id] = [0, login]
+            end
+            user_login_failure_cnt = @@user_login_failure_hash[user_id][0] || 0
+            @@user_login_failure_hash[user_id][0] = user_login_failure_cnt + 1
           end
         end
         # db.xquery("INSERT INTO login_log" \
@@ -90,23 +96,23 @@ module Isucon4
         user = db.xquery('SELECT * FROM users WHERE login = ?', login).first
 
         if ip_banned?
-          login_log(false, request.ip, user ? user['id'] : nil)
+          login_log(false, login, request.ip, user ? user['id'] : nil)
           return [nil, :banned]
         end
 
         if user_locked?(user)
-          login_log(false, request.ip, user['id'])
+          login_log(false, login, request.ip, user['id'])
           return [nil, :locked]
         end
 
         if user && calculate_password_hash(password, user['salt']) == user['password_hash']
-          login_log(true, request.ip, user['id'])
+          login_log(true, login, request.ip, user['id'])
           [user, nil]
         elsif user
-          login_log(false, request.ip, user['id'])
+          login_log(false, login, request.ip, user['id'])
           [nil, :wrong_password]
         else
-          login_log(false, request.ip)
+          login_log(false, login, request.ip)
           [nil, :wrong_login]
         end
       end
