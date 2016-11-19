@@ -83,13 +83,13 @@ module Isucon4
         return nil unless user
         # log = db.xquery("SELECT COUNT(1) AS failures FROM login_log WHERE user_id = ? AND id > IFNULL((select id from login_log where user_id = ? AND succeeded = 1 ORDER BY id DESC LIMIT 1), 0);", user['id'], user['id']).first
 
-        config[:user_lock_threshold] <= (@@user_login_failure_hash[user['id']] || 0)
+        config[:user_lock_threshold] <= ((@@user_login_failure_hash[user['id']] && @@user_login_failure_hash[user['id']][0]) || 0)
       end
 
       def ip_banned?
         # log = db.xquery("SELECT COUNT(1) AS failures FROM login_log WHERE ip = ? AND id > IFNULL((select id from login_log where ip = ? AND succeeded = 1 ORDER BY id DESC LIMIT 1), 0);", request.ip, request.ip).first
 
-        config[:ip_ban_threshold] <= (@@ip_login_failure_hash[request.ip] || 0)
+        config[:ip_ban_threshold] <= ((@@ip_login_failure_hash[request.ip] && @@ip_login_failure_hash[request.ip][0]) || 0)
       end
 
       def attempt_login(login, password)
@@ -153,8 +153,8 @@ module Isucon4
         #   end
         # end
 
-        @@ip_login_failure_hash.each {|ip, cnt| 
-          if threshold <= cnt
+        @@ip_login_failure_hash.each {|ip, data| 
+          if threshold <= data[0]
             ips << ip
           end
         }
@@ -166,9 +166,9 @@ module Isucon4
         user_ids = []
         threshold = config[:user_lock_threshold]
 
-        @@user_login_failure_hash.each {|user_id, cnt| 
-          if threshold <= cnt
-            user_ids << user_id
+        @@user_login_failure_hash.each {|user_id, data| 
+          if threshold <= data[0]
+            user_ids << data[1]
           end
         }
         # 
