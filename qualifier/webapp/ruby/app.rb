@@ -25,6 +25,7 @@ module Isucon4
         reconnect: true,
       )
       
+      @@redis.flushall()
       @@db.xquery('SELECT ip, user_id, login, succeeded, created_at FROM login_log ORDER BY id').each do |row|
         login_log(row['succeeded'] == 1 ? true : false , row['login'], row['ip'], row['created_at'], row['user_id'])
       end
@@ -59,12 +60,11 @@ module Isucon4
 
       def login_log(succeeded, login, ip, ceated_at, user_id = nil)
         if succeeded
-          @@redis.hset("last:#{current_user['id']}", 'created_at', ceated_at)
-          @@redis.hset("last:#{current_user['id']}", 'ip', ip)
-          @@redis.hset("last:#{current_user['id']}", 'login', login)
-
           @@redis.del("ip:#{ip}")
           if user_id 
+            @@redis.hset("last:#{user_id}", 'created_at', ceated_at)
+            @@redis.hset("last:#{user_id}", 'ip', ip)
+            @@redis.hset("last:#{user_id}", 'login', login)
             @@redis.del("user:#{user_id.to_s}")
           end
         else
