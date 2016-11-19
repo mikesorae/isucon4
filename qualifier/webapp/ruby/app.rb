@@ -34,11 +34,8 @@ module Isucon4
       end
 
       def init
-        db.xquery('SELECT ip, user_id, login FROM login_log WHERE succeeded = 0').each do |row|
-          login_log(0, row['login'], row['ip'])
-          if row['user_id']
-            login_log(0, row['login'], row['ip'], row['user_id'])
-          end
+        db.xquery('SELECT ip, user_id, login, succeeded FROM login_log ORDER BY id').each do |row|
+          login_log(row['succeeded'] == 1 ? true : false , row['login'], row['ip'], row['user_id'])
         end
         
         @@redis.keys().each {|key|
@@ -63,7 +60,7 @@ module Isucon4
             @@redis.del("user:#{user_id.to_s}")
           end
         else
-          if @@redis.incr('ip:' + ip) >= config[:ip_ban_threshold]
+          if @@redis.incr("ip:#{ip}") >= config[:ip_ban_threshold]
             @@redis.sadd('ipbans', ip)
           end
           
@@ -113,7 +110,7 @@ module Isucon4
         return @current_user if @current_user
         return nil unless session[:user_id]
 
-        @current_user = db.xquery('SELECT usre_id FROM users WHERE id = ?', session[:user_id].to_i).first
+        @current_user = db.xquery('SELECT user_id FROM users WHERE id = ?', session[:user_id].to_i).first
         unless @current_user
           session[:user_id] = nil
           return nil
@@ -152,7 +149,7 @@ module Isucon4
     end
 
     get '/' do
-      init
+      # init
       erb :index, layout: :base
     end 
 
