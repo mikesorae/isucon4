@@ -60,7 +60,7 @@ module Isucon4
         if succeeded
           @@redis.del("ip:#{ip}")
           if user_id 
-            @@redis.del("user:#{user_id.to_S}")
+            @@redis.del("user:#{user_id.to_s}")
           end
         else
           if @@redis.incr('ip:' + ip) >= config[:ip_ban_threshold]
@@ -77,7 +77,7 @@ module Isucon4
 
       def user_locked?(user)
         return nil unless user
-        config[:user_lock_threshold] <= (@@redis.get("user:#{user['id'].to_S}") && @@redis.get("user:#{user['id'].to_S}").to_i || 0)
+        config[:user_lock_threshold] <= (@@redis.get("user:#{user['id'].to_s}") && @@redis.get("user:#{user['id'].to_s}").to_i || 0)
       end
 
       def ip_banned?
