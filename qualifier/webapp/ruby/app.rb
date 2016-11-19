@@ -25,25 +25,25 @@ module Isucon4
         reconnect: true,
       )
       
-      @@redis.flushall()
-      @@db.xquery('SELECT ip, user_id, login, succeeded, created_at FROM login_log ORDER BY id').each do |row|
-        login_log(row['succeeded'] == 1 ? true : false , row['login'], row['ip'], row['created_at'], row['user_id'])
-      end
+#       @@redis.flushall()
+#       @@db.xquery('SELECT ip, user_id, login, succeeded, created_at FROM login_log ORDER BY id').each do |row|
+#         login_log(row['succeeded'] == 1 ? true : false , row['login'], row['ip'], row['created_at'], row['user_id'])
+#       end
       
-      p 'redis-cli flushall'
-      @@redis.keys().each {|key|
-        if key == 'ipbans' || key == 'userlocks'
-          @@redis.smembers(key).each {|member|
-            p 'redis-cli sadd ' + key + ' ' + member
-          }
-        elsif key.start_with?('last:')
-            p "redis-cli hset #{key} created_at #{@@redis.hget(key, 'created_at')}"
-            p "redis-cli hset #{key} ip #{@@redis.hget(key, 'ip')}"
-            p "redis-cli hset #{key} login #{@@redis.hget(key, 'login')}"
-        else
-          p 'redis-cli set ' + key + ' ' + @@redis.get(key)
-        end
-      }
+#       p 'redis-cli flushall'
+#       @@redis.keys().each {|key|
+#         if key == 'ipbans' || key == 'userlocks'
+#           @@redis.smembers(key).each {|member|
+#             p 'redis-cli sadd ' + key + ' ' + member
+#           }
+#         elsif key.start_with?('last:')
+#             p "redis-cli hset #{key} created_at #{@@redis.hget(key, 'created_at')}"
+#             p "redis-cli hset #{key} ip #{@@redis.hget(key, 'ip')}"
+#             p "redis-cli hset #{key} login #{@@redis.hget(key, 'login')}"
+#         else
+#           p 'redis-cli set ' + key + ' ' + @@redis.get(key)
+#         end
+#       }
     end
 
     helpers do
