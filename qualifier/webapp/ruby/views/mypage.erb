@@ -4,8 +4,10 @@
 </div>
 
 <dl class="dl-horizontal">
-  <dt>前回ログイン</dt>
-  <dd id="last-logined-at"><%= last_login['created_at'].strftime("%Y-%m-%d %H:%M:%S") %></dd>
+  <% if last_login['created_at'] %>
+    <dt>前回ログイン</dt>
+    <dd id="last-logined-at"><%= last_login['created_at'].strftime("%Y-%m-%d %H:%M:%S") %></dd>
+  <% end %>
   <dt>最終ログインIPアドレス</dt>
   <dd id="last-logined-ip"><%= last_login['ip'] %></dd>
 </dl>

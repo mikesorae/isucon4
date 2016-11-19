@@ -122,7 +122,7 @@ module Isucon4
       def last_login #使われてないっぽい
         return nil unless current_user
 
-        db.xquery('SELECT * FROM login_log WHERE succeeded = 1 AND user_id = ? ORDER BY id DESC LIMIT 2', current_user['id']).each.last
+        ll = db.xquery('SELECT * FROM login_log WHERE succeeded = 1 AND user_id = ? ORDER BY id DESC LIMIT 2', current_user['id']).each.last || {}
       end
 
       def banned_ips
