@@ -3,13 +3,11 @@ require 'digest/sha2'
 require 'mysql2-cs-bind'
 require 'rack-flash'
 require 'json'
-# require 'sinatra/reloader'
+require 'redis'
 
 module Isucon4
   class App < Sinatra::Base
-    @@initialized = false
-    @@user_login_failure_hash = {}
-    @@ip_login_failure_hash = {}
+    @@redis = Redis.new
 
     use Rack::Session::Cookie, secret: ENV['ISU4_SESSION_SECRET'] || 'shirokane'
     use Rack::Flash
@@ -36,19 +34,22 @@ module Isucon4
       end
 
       def init
-        if @@initialized
-          return
-        end
-        @@initialized = true
-
         db.xquery('SELECT ip, user_id, login FROM login_log WHERE succeeded = 0').each do |row|
           login_log(0, row['login'], row['ip'])
           if row['user_id']
             login_log(0, row['login'], row['ip'], row['user_id'])
           end
         end
-        p @@user_login_failure_hash
-        p @@ip_login_failure_hash
+
+        @@redis.keys().each {|key|
+          if key == 'ipbans' || key == 'userlocks'
+            @@redis.smembers(key).each {|member|
+              p 'sadd ' + key + ' ' + member
+            }
+          else
+            p 'set ' + key + ' ' + @@redis.get(key)
+          end
+        }
       end
 
       def calculate_password_hash(password, salt)
@@ -56,40 +57,31 @@ module Isucon4
       end
 
       def login_log(succeeded, login, ip, user_id = nil)
-        if succeeded == 1
-          # 必要だったら last_login やる
-        else
-          unless @@ip_login_failure_hash[ip]
-            @@ip_login_failure_hash[ip] = [0, login]
+        if succeeded
+          @@redis.del("ip:#{ip}")
+          if user_id
+            @@redis.del("user:#{user_id.to_s}")
           end
-          ip_login_failure_cnt = @@ip_login_failure_hash[ip][0] || 0
-          @@ip_login_failure_hash[ip][0] = ip_login_failure_cnt + 1
+        else
+          if @@redis.incr('ip:' + ip) >= config[:ip_ban_threshold]
+            @@redis.sadd('ipbans', ip)
+          end
 
           if user_id
-            unless @@user_login_failure_hash[user_id]
-              @@user_login_failure_hash[user_id] = [0, login]
+            if @@redis.incr("user:#{user_id}") >= config[:user_lock_threshold]
+              @@redis.sadd('userlocks', login)
             end
-            user_login_failure_cnt = @@user_login_failure_hash[user_id][0] || 0
-            @@user_login_failure_hash[user_id][0] = user_login_failure_cnt + 1
           end
         end
-        # db.xquery("INSERT INTO login_log" \
-        #           " (`created_at`, `user_id`, `login`, `ip`, `succeeded`)" \
-        #           " VALUES (?,?,?,?,?)",
-        #          Time.now, user_id, login, request.ip, succeeded ? 1 : 0)
       end
 
       def user_locked?(user)
         return nil unless user
-        # log = db.xquery("SELECT COUNT(1) AS failures FROM login_log WHERE user_id = ? AND id > IFNULL((select id from login_log where user_id = ? AND succeeded = 1 ORDER BY id DESC LIMIT 1), 0);", user['id'], user['id']).first
-
-        config[:user_lock_threshold] <= ((@@user_login_failure_hash[user['id']] && @@user_login_failure_hash[user['id']][0]) || 0)
+        config[:user_lock_threshold] <= (@@redis.get("user:#{user['id'].to_s}") && @@redis.get("user:#{user['id'].to_s}").to_i || 0)
       end
 
       def ip_banned?
-        # log = db.xquery("SELECT COUNT(1) AS failures FROM login_log WHERE ip = ? AND id > IFNULL((select id from login_log where ip = ? AND succeeded = 1 ORDER BY id DESC LIMIT 1), 0);", request.ip, request.ip).first
-
-        config[:ip_ban_threshold] <= ((@@ip_login_failure_hash[request.ip] && @@ip_login_failure_hash[request.ip][0]) || 0)
+        config[:ip_ban_threshold] <= (@@redis.get('ip:' + request.ip) && @@redis.get('ip:' + request.ip).to_i || 0)
       end
 
       def attempt_login(login, password)
@@ -142,52 +134,22 @@ module Isucon4
         ips = []
         threshold = config[:ip_ban_threshold]
 
-        # not_succeeded = db.xquery('SELECT ip FROM (SELECT ip, MAX(succeeded) as max_succeeded, COUNT(1) as cnt FROM login_log GROUP BY ip) AS t0 WHERE t0.max_succeeded = 0 AND t0.cnt >= ?', threshold)
-        #
-        # ips.concat not_succeeded.each.map { |r| r['ip'] }
-        #
-        # last_succeeds = db.xquery('SELECT ip, MAX(id) AS last_login_id FROM login_log WHERE succeeded = 1 GROUP by ip')
-        #
-        # last_succeeds.each do |row|
-        #   count = db.xquery('SELECT COUNT(1) AS cnt FROM login_log WHERE ip = ? AND ? < id', row['ip'], row['last_login_id']).first['cnt']
-        #   if threshold <= count
-        #     ips << row['ip']
-        #   end
-        # end
-
-        @@ip_login_failure_hash.each {|ip, data|
-          if threshold <= data[0]
+        @@redis.smembers('ipbans').each {|ip|
             ips << ip
-          end
         }
 
         ips
       end
 
       def locked_users
-        user_ids = []
+        user_names = []
         threshold = config[:user_lock_threshold]
 
-        @@user_login_failure_hash.each {|user_id, data|
-          if threshold <= data[0]
-            user_ids << data[1]
-          end
+        @@redis.smembers('userlocks').each {|user_name|
+            user_names << user_name
         }
-        #
-        # not_succeeded = db.xquery('SELECT user_id, login FROM (SELECT user_id, login, MAX(succeeded) as max_succeeded, COUNT(1) as cnt FROM login_log GROUP BY user_id) AS t0 WHERE t0.user_id IS NOT NULL AND t0.max_succeeded = 0 AND t0.cnt >= ?', threshold)
-        #
-        # user_ids.concat not_succeeded.each.map { |r| r['login'] }
-        #
-        # last_succeeds = db.xquery('SELECT user_id, login, MAX(id) AS last_login_id FROM login_log WHERE user_id IS NOT NULL AND succeeded = 1 GROUP BY user_id')
-        #
-        # last_succeeds.each do |row|
-        #   count = db.xquery('SELECT COUNT(1) AS cnt FROM login_log WHERE user_id = ? AND ? < id', row['user_id'], row['last_login_id']).first['cnt']
-        #   if threshold <= count
-        #     user_ids << row['login']
-        #   end
-        # end
 
-        user_ids
+        user_names
       end
     end
 
@@ -197,7 +159,6 @@ module Isucon4
     end
 
     post '/login' do
-      init
       user, err = attempt_login(params[:login], params[:password])
       if user
         @current_user = user
@@ -217,7 +178,6 @@ module Isucon4
     end
 
     get '/mypage' do
-      init
       unless current_user
         flash[:notice] = "You must be logged in"
         redirect '/'
@@ -226,7 +186,6 @@ module Isucon4
     end
 
     get '/report' do
-      init
       content_type :json
       {
         banned_ips: banned_ips,
