@@ -29,6 +29,7 @@ module Isucon4
       @@db.xquery('SELECT ip, user_id, login, succeeded, created_at FROM login_log ORDER BY id').each do |row|
         login_log(row['succeeded'] == 1 ? true : false , row['login'], row['ip'], row['created_at'], row['user_id'])
       end
+      
       # 
       # @@redis.keys().each {|key|
       #   if key == 'ipbans' || key == 'userlocks'
@@ -62,7 +63,7 @@ module Isucon4
         if succeeded
           @@redis.del("ip:#{ip}")
           if user_id 
-            @@redis.hset("last:#{user_id}", 'created_at', ceated_at)
+            @@redis.hset("last:#{user_id}", 'created_at', ceated_at.strftime("%Y-%m-%d %H:%M:%S"))
             @@redis.hset("last:#{user_id}", 'ip', ip)
             @@redis.hset("last:#{user_id}", 'login', login)
             @@redis.del("user:#{user_id.to_s}")
