@@ -10,7 +10,7 @@ module Isucon4
     @@initialized = false
     @@user_login_failure_hash = {}
     @@ip_login_failure_hash = {}
-    
+
     use Rack::Session::Cookie, secret: ENV['ISU4_SESSION_SECRET'] || 'shirokane'
     use Rack::Flash
     set :public_folder, File.expand_path('../../public', __FILE__)
@@ -42,9 +42,9 @@ module Isucon4
         @@initialized = true
 
         db.xquery('SELECT * FROM login_log WHERE succeeded = 0').each do |row|
-          login_log(0, row['ip'])
+          login_log(0, row['login'], row['ip'])
           if row['user_id']
-            login_log(0, row['ip'], row['user_id'])
+            login_log(0, row['login'], row['ip'], row['user_id'])
           end
         end
         p @@user_login_failure_hash
@@ -64,8 +64,8 @@ module Isucon4
           end
           ip_login_failure_cnt = @@ip_login_failure_hash[ip][0] || 0
           @@ip_login_failure_hash[ip][0] = ip_login_failure_cnt + 1
-          
-          if user_id 
+
+          if user_id
             unless @@user_login_failure_hash[user_id]
               @@user_login_failure_hash[user_id] = [0, login]
             end
@@ -117,6 +117,7 @@ module Isucon4
         end
       end
 
+      # 現在未使用
       def current_user
         return @current_user if @current_user
         return nil unless session[:user_id]
@@ -130,7 +131,8 @@ module Isucon4
         @current_user
       end
 
-      def last_login #使われてないっぽい
+      # 現在未使用
+      def last_login
         return nil unless current_user
 
         db.xquery('SELECT * FROM login_log WHERE succeeded = 1 AND user_id = ? ORDER BY id DESC LIMIT 2', current_user['id']).each.last
@@ -141,11 +143,11 @@ module Isucon4
         threshold = config[:ip_ban_threshold]
 
         # not_succeeded = db.xquery('SELECT ip FROM (SELECT ip, MAX(succeeded) as max_succeeded, COUNT(1) as cnt FROM login_log GROUP BY ip) AS t0 WHERE t0.max_succeeded = 0 AND t0.cnt >= ?', threshold)
-        # 
+        #
         # ips.concat not_succeeded.each.map { |r| r['ip'] }
-        # 
+        #
         # last_succeeds = db.xquery('SELECT ip, MAX(id) AS last_login_id FROM login_log WHERE succeeded = 1 GROUP by ip')
-        # 
+        #
         # last_succeeds.each do |row|
         #   count = db.xquery('SELECT COUNT(1) AS cnt FROM login_log WHERE ip = ? AND ? < id', row['ip'], row['last_login_id']).first['cnt']
         #   if threshold <= count
@@ -153,7 +155,7 @@ module Isucon4
         #   end
         # end
 
-        @@ip_login_failure_hash.each {|ip, data| 
+        @@ip_login_failure_hash.each {|ip, data|
           if threshold <= data[0]
             ips << ip
           end
@@ -166,18 +168,18 @@ module Isucon4
         user_ids = []
         threshold = config[:user_lock_threshold]
 
-        @@user_login_failure_hash.each {|user_id, data| 
+        @@user_login_failure_hash.each {|user_id, data|
           if threshold <= data[0]
             user_ids << data[1]
           end
         }
-        # 
+        #
         # not_succeeded = db.xquery('SELECT user_id, login FROM (SELECT user_id, login, MAX(succeeded) as max_succeeded, COUNT(1) as cnt FROM login_log GROUP BY user_id) AS t0 WHERE t0.user_id IS NOT NULL AND t0.max_succeeded = 0 AND t0.cnt >= ?', threshold)
-        # 
+        #
         # user_ids.concat not_succeeded.each.map { |r| r['login'] }
-        # 
+        #
         # last_succeeds = db.xquery('SELECT user_id, login, MAX(id) AS last_login_id FROM login_log WHERE user_id IS NOT NULL AND succeeded = 1 GROUP BY user_id')
-        # 
+        #
         # last_succeeds.each do |row|
         #   count = db.xquery('SELECT COUNT(1) AS cnt FROM login_log WHERE user_id = ? AND ? < id', row['user_id'], row['last_login_id']).first['cnt']
         #   if threshold <= count
@@ -192,12 +194,13 @@ module Isucon4
     get '/' do
       init
       erb :index, layout: :base
-    end 
+    end
 
     post '/login' do
       init
       user, err = attempt_login(params[:login], params[:password])
       if user
+        @current_user = user
         session[:user_id] = user['id']
         redirect '/mypage'
       else
