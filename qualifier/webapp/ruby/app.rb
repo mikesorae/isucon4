@@ -8,10 +8,37 @@ require 'redis'
 module Isucon4
   class App < Sinatra::Base
     @@redis = Redis.new
+    @@db
     
     use Rack::Session::Cookie, secret: ENV['ISU4_SESSION_SECRET'] || 'shirokane'
     use Rack::Flash
     set :public_folder, File.expand_path('../../public', __FILE__)
+
+    def initialize()
+      super()
+      @@db = Thread.current[:isu4_db] ||= Mysql2::Client.new(
+        host: ENV['ISU4_DB_HOST'] || 'localhost',
+        port: ENV['ISU4_DB_PORT'] ? ENV['ISU4_DB_PORT'].to_i : nil,
+        username: ENV['ISU4_DB_USER'] || 'root',
+        password: ENV['ISU4_DB_PASSWORD'],
+        database: ENV['ISU4_DB_NAME'] || 'isu4_qualifier',
+        reconnect: true,
+      )
+      
+      @@db.xquery('SELECT ip, user_id, login, succeeded, created_at FROM login_log ORDER BY id').each do |row|
+        login_log(row['succeeded'] == 1 ? true : false , row['login'], row['ip'], row['created_at'], row['user_id'])
+      end
+      # 
+      # @@redis.keys().each {|key|
+      #   if key == 'ipbans' || key == 'userlocks'
+      #     @@redis.smembers(key).each {|member|
+      #       p 'sadd ' + key + ' ' + member
+      #     }
+      #   else
+      #     p 'set ' + key + ' ' + @@redis.get(key)
+      #   end
+      # }
+    end
 
     helpers do
 
@@ -23,38 +50,19 @@ module Isucon4
       end
 
       def db
-        Thread.current[:isu4_db] ||= Mysql2::Client.new(
-          host: ENV['ISU4_DB_HOST'] || 'localhost',
-          port: ENV['ISU4_DB_PORT'] ? ENV['ISU4_DB_PORT'].to_i : nil,
-          username: ENV['ISU4_DB_USER'] || 'root',
-          password: ENV['ISU4_DB_PASSWORD'],
-          database: ENV['ISU4_DB_NAME'] || 'isu4_qualifier',
-          reconnect: true,
-        )
-      end
-
-      def init
-        db.xquery('SELECT ip, user_id, login, succeeded FROM login_log ORDER BY id').each do |row|
-          login_log(row['succeeded'] == 1 ? true : false , row['login'], row['ip'], row['user_id'])
-        end
-        
-        @@redis.keys().each {|key|
-          if key == 'ipbans' || key == 'userlocks'
-            @@redis.smembers(key).each {|member|
-              p 'sadd ' + key + ' ' + member
-            }
-          else
-            p 'set ' + key + ' ' + @@redis.get(key)
-          end
-        }
+        @@db
       end
 
       def calculate_password_hash(password, salt)
         Digest::SHA256.hexdigest "#{password}:#{salt}"
       end
 
-      def login_log(succeeded, login, ip, user_id = nil)
+      def login_log(succeeded, login, ip, ceated_at, user_id = nil)
         if succeeded
+          @@redis.hset("last:#{current_user['id']}", 'created_at', ceated_at)
+          @@redis.hset("last:#{current_user['id']}", 'ip', ip)
+          @@redis.hset("last:#{current_user['id']}", 'login', login)
+
           @@redis.del("ip:#{ip}")
           if user_id 
             @@redis.del("user:#{user_id.to_s}")
@@ -85,23 +93,23 @@ module Isucon4
         user = db.xquery('SELECT * FROM users WHERE login = ?', login).first
 
         if ip_banned?
-          login_log(false, login, request.ip, user ? user['id'] : nil)
+          login_log(false, login, request.ip, Time.now, user ? user['id'] : nil)
           return [nil, :banned]
         end
 
         if user_locked?(user)
-          login_log(false, login, request.ip, user['id'])
+          login_log(false, login, request.ip, Time.now, user['id'])
           return [nil, :locked]
         end
 
         if user && calculate_password_hash(password, user['salt']) == user['password_hash']
-          login_log(true, login, request.ip, user['id'])
+          login_log(true, login, request.ip, Time.now, user['id'])
           [user, nil]
         elsif user
-          login_log(false, login, request.ip, user['id'])
+          login_log(false, login, request.ip, Time.now, user['id'])
           [nil, :wrong_password]
         else
-          login_log(false, login, request.ip)
+          login_log(false, login, request.ip, Time.now)
           [nil, :wrong_login]
         end
       end
@@ -122,7 +130,7 @@ module Isucon4
       def last_login #使われてないっぽい
         return nil unless current_user
 
-        db.xquery('SELECT * FROM login_log WHERE succeeded = 1 AND user_id = ? ORDER BY id DESC LIMIT 2', current_user['id']).each.last
+        @@redis.hgetall("last:#{current_user['id']}")
       end
 
       def banned_ips
