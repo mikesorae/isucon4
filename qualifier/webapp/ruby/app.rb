@@ -41,7 +41,7 @@ module Isucon4
         end
         @@initialized = true
 
-        db.xquery('SELECT * FROM login_log WHERE succeeded = 0').each do |row|
+        db.xquery('SELECT ip, user_id FROM login_log WHERE succeeded = 0').each do |row|
           login_log(0, row['ip'])
           if row['user_id']
             login_log(0, row['ip'], row['user_id'])
@@ -121,7 +121,7 @@ module Isucon4
         return @current_user if @current_user
         return nil unless session[:user_id]
 
-        @current_user = db.xquery('SELECT * FROM users WHERE id = ?', session[:user_id].to_i).first
+        @current_user = db.xquery('SELECT usre_id FROM users WHERE id = ?', session[:user_id].to_i).first
         unless @current_user
           session[:user_id] = nil
           return nil
